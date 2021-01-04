@@ -1,0 +1,5 @@
+template v1.0 "Template"
+
+Created by: BlvdBroken
+
+Manual: ktane.timwi.de/HTML/Template.html
