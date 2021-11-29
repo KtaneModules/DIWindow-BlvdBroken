@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using UnityEngine.UI;
 using KModkit;
 
 public class DIWindowScript : MonoBehaviour
@@ -21,19 +22,23 @@ public class DIWindowScript : MonoBehaviour
 	public Dictionary<String, AudioClip> clipDict = new Dictionary<String, AudioClip>();
 
 	static int moduleIdCounter = 1;
-	int moduleId;
+	private int moduleId;
 	private bool moduleSolved;
+
+	public GameObject subBox;
+	private Pair[] subStrings = new Pair[50];
+	private int currSub;
+	private int currInSub;
 
 	public TextMesh inputText;
 	String answer = "0";
 	Speaker spoken = new Speaker();
-	String logSpoken;
 	private bool uni;
-	private bool isPlaying;
+	static bool isPlaying;
 	private bool solved;
 
 	private String[] ops = new String[5] 
-		{"add", "adda", "adds", "loop", "none"};
+		{"none", "adda", "adds", "add", "loop"};
 
 	private String[] restaurants = new String[16] 
 		{"Cluckin' Bell", "Cow-Fil-A", "Burger Queen", "Mr. Donalds", "Panda Train", "KFC", 
@@ -166,6 +171,8 @@ public class DIWindowScript : MonoBehaviour
 			answer = "999674545";
 		} else
 		{
+			// Keeps track of the index of subStrings because I (once again) forgot there was no .append()
+			int subIndex = 0;
 			Debug.LogFormat("[Drive-In Window #{0}] Generated code is as follows:", moduleId);
 			// Vars with R at the end are random variables for the named random aspects
 			int restR = UnityEngine.Random.Range(0, 16);
@@ -182,9 +189,15 @@ public class DIWindowScript : MonoBehaviour
 			// Start of "code"
 			spoken.append("welcome");
 			spoken.append(restaurants[restR]);
+			// Next two lines set up subtitles in the same way the log is formatted and iterates through the list each time
+			// Subtitles are generated in GenerateCode() and shown in PlayCode()
+			subStrings[subIndex] = (new Pair(String.Format("Welcome to {0}.", restaurants[restR]), 2));
+			subIndex++;
 			Debug.LogFormat("[Drive-In Window #{0}] Welcome to {1}.", moduleId, restaurants[restR]);
 			// Constant definitions; adds items and sides to spoken as well as populates itemsT and sidesT
 			spoken.append("menu");
+			subStrings[subIndex] = (new Pair("Here is a menu.", 1));
+			subIndex++;
 			Debug.LogFormat("[Drive-In Window #{0}] Here is a menu.", moduleId);
 			for (int i = 0; i < 3; i++)
 			{
@@ -193,9 +206,13 @@ public class DIWindowScript : MonoBehaviour
 				spoken.append((pricesRN[i] * 10).ToString());
 				spoken.append("dollars");
 				itemsT[i] = new Pair(items[itemsR[i]], (pricesRN[i] * 10));
+				subStrings[subIndex] = (new Pair(String.Format("{0} will cost {1} dollars.", items[itemsR[i]], (pricesRN[i] * 10)), 4));
+				subIndex++;
 				Debug.LogFormat("[Drive-In Window #{0}] {1} will cost {2} dollars.", moduleId, items[itemsR[i]], (pricesRN[i] * 10));
 			}
 			spoken.append("sides");
+			subStrings[subIndex] = (new Pair("Here are your sides.", 1));
+			subIndex++;
 			Debug.LogFormat("[Drive-In Window #{0}] Here are your sides.", moduleId);
 			for (int i = 0; i < 3; i++)
 			{
@@ -204,36 +221,37 @@ public class DIWindowScript : MonoBehaviour
 				spoken.append((sidesRN[i]).ToString());
 				spoken.append("dollars");
 				sidesT[i] = new Pair(sides[sidesR[i]], sidesRN[i]);
+				subStrings[subIndex] = (new Pair(String.Format("{0} will cost {1} dollars.", sides[sidesR[i]], sidesRN[i]), 4));
+				subIndex++;
 				Debug.LogFormat("[Drive-In Window #{0}] {1} will cost {2} dollars.", moduleId, sides[sidesR[i]], sidesRN[i]);
 			}
 			// Start of actual "code"
 			spoken.append("may");
+			subStrings[subIndex] = (new Pair("May I take your order?", 1));
+			subIndex++;
 			Debug.LogFormat("[Drive-In Window #{0}] May I take your order?", moduleId);
 			// Initializes variable names and puts them in namesT
 			for (int i = 0; i < 2; i++) namesT[i] = new Pair(variables[namesR[i]], 0);
 			// Create new String[] tempCode of operations to put in spoken; populates first one with a guarenteed add for multiple reasons
 			// Reasons include different syntax for first add, prevents all "none"'s being chosen, and prevents loops that run zero times
-			// 2 nones added to keep with future syntax
-			String[] tempCode = new String[17];
+			String[] tempCode = new String[7];
 			tempCode[0] = "addf";
-			tempCode[1] = "none";
-			tempCode[2] = "none";
 			// Spaghetti code that allows me to track how much money was gained from a loop add so I can properly multiply
 			int before = 0;
 			int after = 0;
-			// Adds 4 random operations to tempCode to add to spoken
-			// Adds two "none" ops after each to make room for adding an "add" type and the end to loops
-			// Indexed at 3 because indices 0-2 are already filled
-			for (int i = 3; i <= 12; i += 3)
+			// Adds 2 random operations to tempCode to add to spoken
+			// Choices are adda, adds, and none
+			for (int i = 1; i < 3; i++)
 			{
-				tempCode[i] = ops[UnityEngine.Random.Range(0, 5)];
-				tempCode[i + 1] = "none";
-				tempCode[i + 2] = "none";
+				tempCode[i] = ops[UnityEngine.Random.Range(0, 3)];
 			}
+			// Populates end of tempCode with a loop, because without a guaranteed loop the module is kinda boring
+			// loop is not included in the random to keep the read time down (two loops could make a module )
+			tempCode[3] = "loop";
 			int tempRandI;
 			int tempRandS;
-			// Handles the 4 random operations and one guarenteed operation generated in tempCode
-			for (int i = 0; i < 15; i++)
+			// Handles the random and guarenteed operations generated in tempCode
+			for (int i = 0; i < 7; i++)
 			{
 				// Creates two random numbers to be used for the item and side index for each pass, respectively
 				tempRandI = UnityEngine.Random.Range(0, 3);
@@ -249,6 +267,8 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append(itemsT[tempRandI].Name);
 						namesT[0].Val += itemsT[tempRandI].Val;
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would also like {1}.", namesT[0].Name, itemsT[tempRandI].Name), 4));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would also like {2}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name);
 						break;
 					// Adds value of tempRandI's respective item to the first variable for the first time
@@ -259,6 +279,8 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append(itemsT[tempRandI].Name);
 						namesT[0].Val += itemsT[tempRandI].Val;
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would like {1}.", namesT[0].Name, itemsT[tempRandI].Name), 4));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would like {2}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name);
 						break;
 					// Adds value of tempRandI's respective item plus tempRandS' respective side to the first variable
@@ -271,6 +293,8 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append(sidesT[tempRandS].Name);
 						namesT[0].Val += itemsT[tempRandI].Val + sidesT[tempRandS].Val;
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would also like {1} with a side of {2}.", namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name), 6));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would also like {2} with a side of {3}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name);
 						break;
 					// Adds value of tempRandI's respective item minus tempRandS' respective side to the first variable
@@ -283,6 +307,8 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append(sidesT[tempRandS].Name);
 						namesT[0].Val += itemsT[tempRandI].Val - sidesT[tempRandS].Val;
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would also like {1}, hold the {2}.", namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name), 6));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would also like {2}, hold the {3}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name);
 						break;
 					// Begins loop, no math yet; adds an add and loopend to ops
@@ -297,11 +323,15 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append("loop1");
 						spoken.append(namesT[1].Name);
 						spoken.append("loop2");
-						tempCode[i + 1] = ops[UnityEngine.Random.Range(0, 2)];
+						tempCode[i + 1] = ops[UnityEngine.Random.Range(1, 3)];
 						tempCode[i + 2] = "loopend";
 						before = namesT[0].Val;
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would like what {1} is having.", namesT[1].Name, namesT[0].Name), 5));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would like what {2} is having.", moduleId, namesT[1].Name, namesT[0].Name);
+						subStrings[subIndex] = (new Pair(String.Format("Let's just do this until {0} has no more money!", namesT[1].Name), 4));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] Let's just do this until {1} has no more money!", moduleId, namesT[1].Name);
 						break;
 					// Ends loop, does math; adds how much was added between loop and loopend a number of times based on how many times a chosen side's price fits into the before price
@@ -321,7 +351,11 @@ public class DIWindowScript : MonoBehaviour
 							namesT[0].Val += after - before;
 						}
 						spoken.append("stop");
+						subStrings[subIndex] = (new Pair(String.Format("{0} would not like {1}.", namesT[1].Name, sidesT[tempRandS].Name), 4));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} would not like {2}.", moduleId, namesT[1].Name, sidesT[tempRandS].Name);
+						subStrings[subIndex] = (new Pair(String.Format("{0} has no more money!", namesT[1].Name), 3));
+						subIndex++;
 						Debug.LogFormat("[Drive-In Window #{0}] {1} has no more money!", moduleId, namesT[1].Name);
 						break;
 					// Code for if "none" is selected; does not add anything to spoken
@@ -333,11 +367,13 @@ public class DIWindowScript : MonoBehaviour
 			// Example: OK, that will be $3.50. Thanks for coming!
 			spoken.append(namesT[0].Name);
 			spoken.append("fin");
+			answer = namesT[0].Val.ToString();
+			subStrings[subIndex] = (new Pair(String.Format("{0} will pay for their order!\nOK, that will be $3.50. Thanks for coming!", namesT[0].Name), 2));
+			subIndex++;
 			Debug.LogFormat("[Drive-In Window #{0}] {1} will pay for their order!", moduleId, namesT[0].Name);
 			Debug.LogFormat("[Drive-In Window #{0}] OK, that will be $3.50. Thanks for coming!", moduleId);
 			Debug.LogFormat("[Drive-In Window #{0}]", moduleId);
 			Debug.LogFormat("[Drive-In Window #{0}] The answer to be submitted is {1}", moduleId, answer);
-			answer = namesT[0].Val.ToString();
 		}
 	}
 
@@ -346,12 +382,27 @@ public class DIWindowScript : MonoBehaviour
 	IEnumerator playCode()
 	{
 		isPlaying = true;
+		currSub = 0;
+		currInSub = 0;
 		foreach(String word in spoken.Output)
 		{
 			if (String.IsNullOrEmpty(word)) break;
 			Audio.PlaySoundAtTransform(word, transform);
+			// Shows Subtitles in a text box at the base of the screen
+			subBox.GetComponent<Text>().text = subStrings[currSub].Name;
+			// Convuluted solution to having the subtitles last exactly as long as the voice clip
+			// Essentially in each Pair declaration the val was how many voice lines play between full sentences
+			// This increments a counter every time a voice line is played until it reaches the val, after which is goes to the next subtitle
+			currInSub++;
+			if (currInSub == subStrings[currSub].Val)
+			{
+				currSub++;
+				currInSub = 0;
+			}
 			yield return new WaitForSeconds(clipDict[word].length);
 		}
+		// Turns off subtitles after the lines stop playing
+		subBox.GetComponent<Text>().text = "";
 		isPlaying = false;
 	}
 
@@ -377,6 +428,11 @@ public class DIWindowScript : MonoBehaviour
 		{
 			get { return val; }
 			set { val = value; }
+		}
+
+		public override String ToString()
+		{
+			return String.Format("Pair name is {0}, Pair val is {1}", name, val);
 		}
 	}
 
