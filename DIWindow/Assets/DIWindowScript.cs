@@ -37,6 +37,9 @@ public class DIWindowScript : MonoBehaviour
 	static bool isPlaying;
 	private bool solved;
 
+	private IDictionary<string, object> tpAPI;
+	private bool TwitchPlaysActive;
+
 	private String[] ops = new String[5] 
 		{"none", "adda", "adds", "add", "loop"};
 
@@ -75,6 +78,9 @@ public class DIWindowScript : MonoBehaviour
 		playButton.OnInteract += delegate() { PlayPress(); return false; };
 		// This allows for faster searching for audio files based on their name
 		foreach (AudioClip clip in clips) clipDict.Add(clip.name, clip);
+		// Because static, need to reset variable between bombs in case blown up/solved before finished playing
+		isPlaying = false;
+		GetComponent<KMBombModule>().OnActivate += TPActive;
 	}
 
 	// Use this for initialization
@@ -389,7 +395,14 @@ public class DIWindowScript : MonoBehaviour
 			if (String.IsNullOrEmpty(word)) break;
 			Audio.PlaySoundAtTransform(word, transform);
 			// Shows Subtitles in a text box at the base of the screen
-			subBox.GetComponent<Text>().text = subStrings[currSub].Name;
+			if (TwitchPlaysActive)
+			{
+				tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} | {1}", GetModuleCode(), subStrings[currSub].Name);
+			}
+			else
+			{
+				subBox.GetComponent<Text>().text = subStrings[currSub].Name;
+			}
 			// Convuluted solution to having the subtitles last exactly as long as the voice clip
 			// Essentially in each Pair declaration the val was how many voice lines play between full sentences
 			// This increments a counter every time a voice line is played until it reaches the val, after which is goes to the next subtitle
@@ -515,5 +528,43 @@ public class DIWindowScript : MonoBehaviour
 		GetComponent<KMBombModule>().HandlePass();
 		solved = true;
 	}
+
+	void TPActive()
+	{
+		Debug.Log(TwitchPlaysActive);
+		if (TwitchPlaysActive)
+        {
+            GameObject tpAPIGameObject = GameObject.Find("TwitchPlays_Info");
+            //To make the module can be tested in test harness, check if the gameObject exists.
+            if (tpAPIGameObject != null)
+			{
+                tpAPI = tpAPIGameObject.GetComponent<IDictionary<string, object>>();
+			}
+            else
+			{
+                TwitchPlaysActive = false;
+			}
+        }
+		Debug.Log(TwitchPlaysActive);
+	}
+
+	// Gets the module code on Twitch Plays
+	// I'd comment if I had any idea how it worked
+	private string GetModuleCode()
+    {
+        Transform closest = null;
+        float closestDistance = float.MaxValue;
+        foreach (Transform children in transform.parent)
+        {
+            var distance = (transform.position - children.position).magnitude;
+            if (children.gameObject.name == "TwitchModule(Clone)" && (closest == null || distance < closestDistance))
+            {
+                closest = children;
+                closestDistance = distance;
+            }
+        }
+
+        return closest != null ? closest.Find("MultiDeckerUI").Find("IDText").GetComponent<UnityEngine.UI.Text>().text : null;
+    }
 
 }
