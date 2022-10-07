@@ -39,6 +39,7 @@ public class DIWindowScript : MonoBehaviour
 
 	private IDictionary<string, object> tpAPI;
 	private bool TwitchPlaysActive;
+	private bool _tpActive;
 
 	private String[] ops = new String[5] 
 		{"none", "adda", "adds", "add", "loop"};
@@ -197,9 +198,9 @@ public class DIWindowScript : MonoBehaviour
 			spoken.append(restaurants[restR]);
 			// Next two lines set up subtitles in the same way the log is formatted and iterates through the list each time
 			// Subtitles are generated in GenerateCode() and shown in PlayCode()
-			subStrings[subIndex] = (new Pair(String.Format("Welcome to {0}.", restaurants[restR]), 2));
+			subStrings[subIndex] = (new Pair(String.Format("Hi. Welcome to {0}.", restaurants[restR]), 2));
 			subIndex++;
-			Debug.LogFormat("[Drive-In Window #{0}] Welcome to {1}.", moduleId, restaurants[restR]);
+			Debug.LogFormat("[Drive-In Window #{0}] Hi. Welcome to {1}.", moduleId, restaurants[restR]);
 			// Constant definitions; adds items and sides to spoken as well as populates itemsT and sidesT
 			spoken.append("menu");
 			subStrings[subIndex] = (new Pair("Here is a menu.", 1));
@@ -299,9 +300,9 @@ public class DIWindowScript : MonoBehaviour
 						spoken.append(sidesT[tempRandS].Name);
 						namesT[0].Val += itemsT[tempRandI].Val + sidesT[tempRandS].Val;
 						spoken.append("stop");
-						subStrings[subIndex] = (new Pair(String.Format("{0} would also like {1} with a side of {2}.", namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name), 6));
+						subStrings[subIndex] = (new Pair(String.Format("{0} would also like {1} with {2}.", namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name), 6));
 						subIndex++;
-						Debug.LogFormat("[Drive-In Window #{0}] {1} would also like {2} with a side of {3}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name);
+						Debug.LogFormat("[Drive-In Window #{0}] {1} would also like {2} with {3}.", moduleId, namesT[0].Name, itemsT[tempRandI].Name, sidesT[tempRandS].Name);
 						break;
 					// Adds value of tempRandI's respective item minus tempRandS' respective side to the first variable
 					// Example: John F. Kennedy would also like a Knuckle Sandwhich, hold the Sodium Chloride
@@ -385,6 +386,7 @@ public class DIWindowScript : MonoBehaviour
 
 	// IEnumerator that plays the spoken code and disables use of the button during playing
 	// Reason for IEnumerator is I need WaitForSeconds between each so it doesn't play every single audio file at once
+	string prevText = "";
 	IEnumerator playCode()
 	{
 		isPlaying = true;
@@ -395,14 +397,14 @@ public class DIWindowScript : MonoBehaviour
 			if (String.IsNullOrEmpty(word)) break;
 			Audio.PlaySoundAtTransform(word, transform);
 			// Shows Subtitles in a text box at the base of the screen
-			if (TwitchPlaysActive)
+			var text = subStrings[currSub].Name;
+			if (text != prevText)
 			{
-				tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} | {1}", GetModuleCode(), subStrings[currSub].Name);
+				subBox.GetComponent<Text>().text = text;
+				if (_tpActive)
+					tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} (Drive-In Window) says: {1}", GetModuleCode(), text);
 			}
-			else
-			{
-				subBox.GetComponent<Text>().text = subStrings[currSub].Name;
-			}
+			prevText = text;
 			// Convuluted solution to having the subtitles last exactly as long as the voice clip
 			// Essentially in each Pair declaration the val was how many voice lines play between full sentences
 			// This increments a counter every time a voice line is played until it reaches the val, after which is goes to the next subtitle
@@ -531,21 +533,16 @@ public class DIWindowScript : MonoBehaviour
 
 	void TPActive()
 	{
-		Debug.Log(TwitchPlaysActive);
 		if (TwitchPlaysActive)
         {
+			_tpActive = true;
             GameObject tpAPIGameObject = GameObject.Find("TwitchPlays_Info");
             //To make the module can be tested in test harness, check if the gameObject exists.
             if (tpAPIGameObject != null)
-			{
                 tpAPI = tpAPIGameObject.GetComponent<IDictionary<string, object>>();
-			}
             else
-			{
-                TwitchPlaysActive = false;
-			}
+                _tpActive = false;
         }
-		Debug.Log(TwitchPlaysActive);
 	}
 
 	// Gets the module code on Twitch Plays
