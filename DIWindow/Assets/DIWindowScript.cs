@@ -40,6 +40,7 @@ public class DIWindowScript : MonoBehaviour
 	private IDictionary<string, object> tpAPI;
 	private bool TwitchPlaysActive;
 	private bool _tpActive;
+	private bool _sendToChat;
 
 	private String[] ops = new String[5] 
 		{"none", "adda", "adds", "add", "loop"};
@@ -398,13 +399,9 @@ public class DIWindowScript : MonoBehaviour
 			Audio.PlaySoundAtTransform(word, transform);
 			// Shows Subtitles in a text box at the base of the screen
 			var text = subStrings[currSub].Name;
-			if (text != prevText)
-			{
-				subBox.GetComponent<Text>().text = text;
-				if (_tpActive)
-					tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} (Drive-In Window) says: {1}", GetModuleCode(), text);
-			}
-			prevText = text;
+			subBox.GetComponent<Text>().text = text;
+			if (_tpActive && _sendToChat)
+				tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} (Drive-In Window) says: {1}", GetModuleCode(), text);
 			// Convuluted solution to having the subtitles last exactly as long as the voice clip
 			// Essentially in each Pair declaration the val was how many voice lines play between full sentences
 			// This increments a counter every time a voice line is played until it reaches the val, after which is goes to the next subtitle
@@ -495,40 +492,59 @@ public class DIWindowScript : MonoBehaviour
 
 	// Twitch Plays Integration
 #pragma warning disable 414
-	private readonly String TwitchHelpMessage = @"Use !{0} play to play the code, and !{0} submit 12345 to submit an answer.";
+	private readonly String TwitchHelpMessage = "Use !{0} play to play the code, and !{0} submit 12345 to submit an answer. Use \"!{0} send to chat\" to send the order into Twitch chat.";
 #pragma warning restore 414
 
 	// Processes Twitch Commands. Duh.
-	KMSelectable[] ProcessTwitchCommand(string command)
+	IEnumerator ProcessTwitchCommand(string command)
 	{
 		command = command.Trim().ToLowerInvariant();
-		if (command == "play")
+		// \s* = Optional space (any amount of spaces)
+		// \s+ = Required space (any amount of spaces)
+		if (Regex.IsMatch(command, @"^\s*send\s+to\s+chat\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+			yield return null;
+			_sendToChat = !_sendToChat;
+			yield return "Module " + GetModuleCode() + " (Drive-In Window) will " + (_sendToChat ? "now" : "no longer") + " send messages to chat.";
+			yield break;
+        }
+		if (Regex.IsMatch(command, @"^\s*play\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
 		{
+			yield return null;
 			// Presses the play button when !{0} play is used
-			return new[] {playButton};
-		} else if (Regex.IsMatch(command, @"submit +[0-9]"))
-		{
-			// Takes everything after "submit " and presses the keys at those indices
-			String submitted = command.Substring(7).Trim();
-			// Makes the array submitted length + 1 to make room for the submit button
-			KMSelectable[] ret = new KMSelectable[submitted.Length + 1];
-			for (int i = 0; i < submitted.Length; i++)
-			{
-				ret[i] = keys[int.Parse(submitted[i].ToString())];
-			}
-			ret[submitted.Length] = subButton;
-			return ret;
+			yield return new[] { playButton};
+			yield break;
 		}
-		return null;
+		// (?:blah) = Non-capturing group, basically ignores this part when parsing the groups of the string.
+		// (?<d>blah) = Naming the group, in this case "d", so it can be read and used later.
+		var m = Regex.Match(command, @"\s*(?:submit\s+)(?<d>\d+)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+		if (m.Success)
+		{
+			yield return null;
+			var input = m.Groups["d"].Value; // This is equivalent to the \d+ found inside the parenthesis.
+			var ret = new List<KMSelectable>();
+			for (int i = 0; i < input.Length; i++)
+				ret.Add( keys[int.Parse(input[i].ToString())]);
+			ret.Add(subButton);
+			yield return ret;
+			// Add all the key buttons and the submit button to the list, then return it.
+		}
 	}
 
 	// Runs when !solve is used; Changes the input text to the answer and makes the solve sounds, then solves the module
-	void TwitchHandleForcedSolve()
+	IEnumerator TwitchHandleForcedSolve()
 	{
-		inputText.text = answer;
-		Audio.PlaySoundAtTransform("cashRegister", transform);
-		GetComponent<KMBombModule>().HandlePass();
-		solved = true;
+		if (!answer.StartsWith(inputText.text)) // If the input so far does not start with the solution...
+		{
+			screen.OnInteract(); // ...require the input to be cleared.
+			yield return new WaitForSeconds(0.1f);
+		}
+		for (int i = inputText.text.Length; i < answer.Length; i++) // Input the correct answer, starting from the number of correctly inputted numbers.
+        {
+			keys[int.Parse(answer[i].ToString())].OnInteract();
+			yield return new WaitForSeconds(0.1f);
+		}
+		subButton.OnInteract();
 	}
 
 	void TPActive()
