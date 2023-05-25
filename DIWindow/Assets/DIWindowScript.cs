@@ -492,7 +492,7 @@ public class DIWindowScript : MonoBehaviour
 
 	// Twitch Plays Integration
 #pragma warning disable 414
-	private readonly String TwitchHelpMessage = "Use !{0} play to play the code, and !{0} submit 12345 to submit an answer. Use \"!{0} send to chat\" to send the order into Twitch chat.";
+	private readonly String TwitchHelpMessage = "Use !{0} play to play the code, and !{0} submit 12345 to submit an answer. Use \"!{0} send to chat\" to have the messages send into Twitch chat while the speaker is giving the order.";
 #pragma warning restore 414
 
 	// Processes Twitch Commands. Duh.
@@ -505,7 +505,7 @@ public class DIWindowScript : MonoBehaviour
         {
 			yield return null;
 			_sendToChat = !_sendToChat;
-			yield return "Module " + GetModuleCode() + " (Drive-In Window) will " + (_sendToChat ? "now" : "no longer") + " send messages to chat.";
+			yield return "sendtochat Module " + GetModuleCode() + " (Drive-In Window) will " + (_sendToChat ? "now" : "no longer") + " send messages to chat.";
 			yield break;
         }
 		if (Regex.IsMatch(command, @"^\s*play\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
