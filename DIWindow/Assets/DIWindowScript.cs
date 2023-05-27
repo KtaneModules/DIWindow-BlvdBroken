@@ -400,8 +400,6 @@ public class DIWindowScript : MonoBehaviour
 			// Shows Subtitles in a text box at the base of the screen
 			var text = subStrings[currSub].Name;
 			subBox.GetComponent<Text>().text = text;
-			if (_tpActive && _sendToChat)
-				tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} (Drive-In Window) says: {1}", GetModuleCode(), text);
 			// Convuluted solution to having the subtitles last exactly as long as the voice clip
 			// Essentially in each Pair declaration the val was how many voice lines play between full sentences
 			// This increments a counter every time a voice line is played until it reaches the val, after which is goes to the next subtitle
@@ -410,6 +408,10 @@ public class DIWindowScript : MonoBehaviour
 			{
 				currSub++;
 				currInSub = 0;
+				//Debug.LogFormat(text);
+				// If outside of this if statement, would send to chat every time a new voice clip is made, instead of at the end of a voice clip
+				if (_tpActive && _sendToChat)
+					tpAPI["ircConnectionSendMessage"] = String.Format("Module {0} (Drive-In Window) says: {1}", GetModuleCode(), text);
 			}
 			yield return new WaitForSeconds(clipDict[word].length);
 		}
